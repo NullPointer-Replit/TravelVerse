@@ -5,7 +5,109 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-poppins), 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 0;
+}
+
+@keyframes fly {
+  0% {
+    transform: translateX(-150px) translateY(0) rotate(45deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.6;
+  }
+  95% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(calc(100vw + 150px)) translateY(-150px) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-delayed {
+  0% {
+    transform: translateX(-150px) translateY(50px) rotate(45deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.5;
+  }
+  95% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateX(calc(100vw + 150px)) translateY(-50px) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-slow {
+  0% {
+    transform: translateX(-150px) translateY(100px) rotate(45deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(calc(100vw + 150px)) translateY(50px) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+.animate-fly {
+  animation: fly 20s linear infinite;
+}
+
+.animate-fly-delayed {
+  animation: fly-delayed 25s linear infinite;
+  animation-delay: 5s;
+}
+
+.animate-fly-slow {
+  animation: fly-slow 30s linear infinite;
+  animation-delay: 10s;
+}
+
+@keyframes scroll-text-globe {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.scrolling-text-globe {
+  animation: scroll-text-globe 30s linear infinite;
+  display: inline-block;
+}
+
+@keyframes scroll-earth {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.scrolling-earth-container {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  animation: scroll-earth 120s linear infinite;
+}
+
+.scrolling-earth-image {
+  width: 50%;
+  height: 100%;
+  object-fit: cover;
+  flex-shrink: 0;
 }

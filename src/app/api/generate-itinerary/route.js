@@ -19,7 +19,7 @@ export async function POST(request) {
       );
     }
 
-    const { destination, days, interests, budget } = await request.json();
+    const { destination, days, interests, budget, regenerateDay, existingItinerary, replaceSection, currentItem } = await request.json();
 
     const genAI = getGenAI();
 
@@ -54,7 +54,101 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: `No accessible models found. Last error: ${lastErr?.message || String(lastErr)}` }, { status: 500 });
     }
 
-    const prompt = `You are an expert travel planner. Create a detailed ${days}-day itinerary for ${destination}.
+    let prompt;
+    
+    if (regenerateDay && existingItinerary) {
+      const currentDay = existingItinerary.itinerary.find(d => d.day === regenerateDay);
+      
+      if (replaceSection && currentItem) {
+        // Suggest alternative for a specific section
+        const sectionLabels = {
+          morning: 'Morning activity',
+          lunch: 'Lunch restaurant',
+          afternoon: 'Afternoon activity',
+          dinner: 'Dinner restaurant',
+          evening: 'Evening activity'
+        };
+        
+        prompt = `You are an expert travel planner. Suggest an alternative ${sectionLabels[replaceSection]} for Day ${regenerateDay} of a ${days}-day itinerary in ${destination}.
+
+User preferences:
+- Interests: ${interests.join(', ')}
+- Budget level: ${budget}
+
+The current ${sectionLabels[replaceSection]} that the user wants to replace:
+${JSON.stringify(currentItem, null, 2)}
+
+The rest of Day ${regenerateDay} includes:
+${JSON.stringify({
+  ...currentDay,
+  [replaceSection]: null
+}, null, 2)}
+
+The other days of the itinerary are:
+${JSON.stringify(existingItinerary.itinerary.filter(d => d.day !== regenerateDay), null, 2)}
+
+Suggest a better alternative that:
+- Matches the user's interests and budget
+- Fits well with the rest of Day ${regenerateDay}
+- Doesn't duplicate activities from other days
+- Is in INR (Indian Rupees) for prices
+- Includes booking links and prices if applicable
+
+Format the response as a structured JSON with this exact schema:
+{
+  "itinerary": [
+    {
+      "day": ${regenerateDay},
+      "${replaceSection}": ${replaceSection === 'lunch' || replaceSection === 'dinner' 
+        ? '{ "name": "", "cuisine": "", "location": "", "bookingLink": "", "price": "" }'
+        : replaceSection === 'evening'
+        ? '{ "activity": "", "bookingLink": "", "price": "" }'
+        : '{ "activity": "", "time": "", "location": "", "bookingLink": "", "price": "" }'}
+    }
+  ]
+}
+
+Return ONLY valid JSON, no markdown, no code blocks, just the JSON object.`;
+      } else {
+        // Regenerate entire day
+        prompt = `You are an expert travel planner. Regenerate ONLY Day ${regenerateDay} of a ${days}-day itinerary for ${destination}.
+
+User preferences:
+- Interests: ${interests.join(', ')}
+- Budget level: ${budget}
+
+The other days of the itinerary are:
+${JSON.stringify(existingItinerary.itinerary.filter(d => d.day !== regenerateDay), null, 2)}
+
+Create a new itinerary for Day ${regenerateDay} with:
+1. Morning activity (with estimated time and location)
+2. Lunch recommendation (restaurant name and cuisine type)
+3. Afternoon activity (with estimated time and location)
+4. Dinner recommendation (restaurant name and cuisine type)
+5. Evening activity or rest suggestion
+
+Make sure the day fits well with the overall trip theme and doesn't duplicate activities from other days.
+All prices should be in INR (Indian Rupees).
+
+Format the response as a structured JSON with this exact schema:
+{
+  "itinerary": [
+    {
+      "day": ${regenerateDay},
+      "morning": { "activity": "", "time": "", "location": "", "bookingLink": "", "price": "" },
+      "lunch": { "name": "", "cuisine": "", "location": "", "bookingLink": "", "price": "" },
+      "afternoon": { "activity": "", "time": "", "location": "", "bookingLink": "", "price": "" },
+      "dinner": { "name": "", "cuisine": "", "location": "", "bookingLink": "", "price": "" },
+      "evening": { "activity": "", "bookingLink": "", "price": "" }
+    }
+  ]
+}
+
+Return ONLY valid JSON, no markdown, no code blocks, just the JSON object.`;
+      }
+    } else {
+      // Full itinerary generation
+      prompt = `You are an expert travel planner. Create a detailed ${days}-day itinerary for ${destination}.
 
 User preferences:
 - Interests: ${interests.join(', ')}
@@ -67,27 +161,41 @@ For each day, provide:
 4. Dinner recommendation (restaurant name and cuisine type)
 5. Evening activity or rest suggestion
 
-Also suggest 2-3 hotels that match the budget level.
+Also suggest a minimum of 12 hotels that match the budget level. Include a diverse range of options from budget-friendly to luxury. For each hotel, include booking links (use Booking.com, Expedia, or similar) and estimated prices per night in INR (Indian Rupees).
+
+For activities like parks, museums, events, rides, and attractions that can be booked in advance, include booking links and ticket prices in INR where applicable.
+
+IMPORTANT: 
+- All prices should be in Indian Rupees (INR). Use realistic Indian market prices.
+- Include flight suggestions with departure and arrival airports, airlines, estimated prices in INR, and booking links (use MakeMyTrip, Goibibo, or similar Indian booking platforms).
 
 Format the response as a structured JSON with this exact schema:
 {
   "itinerary": [
     {
       "day": 1,
-      "morning": { "activity": "", "time": "", "location": "" },
-      "lunch": { "name": "", "cuisine": "", "location": "" },
-      "afternoon": { "activity": "", "time": "", "location": "" },
-      "dinner": { "name": "", "cuisine": "", "location": "" },
-      "evening": { "activity": "" }
+      "morning": { "activity": "", "time": "", "location": "", "bookingLink": "", "price": "" },
+      "lunch": { "name": "", "cuisine": "", "location": "", "bookingLink": "", "price": "" },
+      "afternoon": { "activity": "", "time": "", "location": "", "bookingLink": "", "price": "" },
+      "dinner": { "name": "", "cuisine": "", "location": "", "bookingLink": "", "price": "" },
+      "evening": { "activity": "", "bookingLink": "", "price": "" }
     }
   ],
   "hotels": [
-    { "name": "", "priceRange": "", "location": "", "highlights": "" }
+    { "name": "", "priceRange": "", "location": "", "highlights": "", "bookingLink": "", "pricePerNight": "" },
+    ... (provide at least 12 hotels with diverse options)
+  ],
+  "flights": [
+    { "airline": "", "departureAirport": "", "arrivalAirport": "", "departureTime": "", "arrivalTime": "", "price": "", "bookingLink": "", "type": "outbound" },
+    { "airline": "", "departureAirport": "", "arrivalAirport": "", "departureTime": "", "arrivalTime": "", "price": "", "bookingLink": "", "type": "return" }
   ],
   "tips": ["tip1", "tip2", "tip3"]
 }
 
+Note: bookingLink and price fields are optional - only include them if the activity/hotel can be booked online.
+
 Return ONLY valid JSON, no markdown, no code blocks, just the JSON object.`;
+    }
 
     const result = await model.generateContent(prompt);
 

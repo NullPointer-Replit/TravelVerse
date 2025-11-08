@@ -49,7 +49,7 @@ npm run dev
 ## Project Structure
 
 ```
-travelverse/
+travelr/
 ├── src/
 │   ├── app/
 │   │   ├── api/generate-itinerary/  # API route for AI generation
